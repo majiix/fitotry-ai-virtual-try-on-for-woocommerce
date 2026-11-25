@@ -5,7 +5,7 @@ Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 8.0
 Requires Plugins: woocommerce
-Stable tag: 1.8.2
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -53,6 +53,29 @@ This plugin connects to external artificial intelligence APIs to generate realis
 * **What data is transmitted**: When a try-on is requested, the customer's uploaded or camera-captured photo, the WooCommerce product image, and category-specific prompt instructions are transmitted for AI inference. When retrieving completed images, standard HTTP GET request headers are sent to fetch the image bytes. During connection tests, only the API key is verified without sending customer data.
 * **Terms of Service**: https://openrouter.ai/terms
 * **Privacy Policy**: https://openrouter.ai/privacy
+
+= 2. Additional Supported BYOK AI Providers =
+Store administrators may optionally select any of the following image-capable Bring-Your-Own-Key (BYOK) providers in **AI Try-On > Settings**:
+* **OpenAI Direct** (`https://api.openai.com`) - Terms: https://openai.com/policies/terms-of-use | Privacy: https://openai.com/policies/privacy-policy
+* **Google Gemini Direct** (`https://generativelanguage.googleapis.com`) - Terms: https://ai.google.dev/terms | Privacy: https://policies.google.com/privacy
+* **AvalAI** (`https://api.avalai.ir`) - Website: https://avalai.ir/
+* **GapGPT** (`https://api.gapgpt.app`) - Website: https://gapgpt.app/
+* **NVIDIA NIM** (`https://integrate.api.nvidia.com`) - Website: https://build.nvidia.com/
+* **Mistral AI** (`https://api.mistral.ai`) - Terms: https://mistral.ai/terms/
+* **Together AI** (`https://api.together.xyz`) - Website: https://www.together.ai/
+* **Fireworks AI** (`https://api.fireworks.ai`) - Website: https://fireworks.ai/
+* **xAI (Grok)** (`https://api.x.ai`) - Website: https://x.ai/
+* **Alibaba Cloud Model Studio (Qwen DashScope)** (`https://dashscope-intl.aliyuncs.com`) - Website: https://www.alibabacloud.com/
+* **Cloudflare Workers AI** (`https://api.cloudflare.com`) - Website: https://www.cloudflare.com/
+* **ArvanCloud AI** (`https://api.arvancloudai.ir`) - Website: https://www.arvancloud.ir/
+* **MetisAI** (`https://api.metisai.ir`) - Website: https://metisai.ir/
+* **Liara AI** (`https://ai.liara.ir`) - Website: https://liara.ir/
+* **HeroAI** (`https://api.heroai.ir`) - Website: https://heroai.ir/
+* **TalkBot** (`https://api.talkbot.ir`) - Website: https://talkbot.ir/
+* **CupAI** (`https://api.cupai.ir`) - Website: https://cupai.ir/
+* **Hooshang** (`https://hushang.cloud`) - Website: https://hushang.cloud/
+* **Hormouz** (`https://api.hormouz.net`) - Website: https://api.hormouz.net/
+* **Custom OpenAI-Compatible Endpoint / Self-Hosted Ollama** - Sends requests only to the HTTPS (or localhost Ollama) Base URL you explicitly configure.
 
 == Third-Party Assets ==
 
@@ -114,6 +137,9 @@ No. All assets, including Chart.js for analytics, are bundled locally within the
 7. Abuse prevention, rate limiting, and customer data privacy settings.
 
 == Changelog ==
+
+= 1.9.0 =
+* Feature: Added 20 additional image-capable BYOK AI providers (21 total), including OpenAI Direct, Google Gemini Direct, AvalAI, GapGPT, NVIDIA NIM, Mistral AI, Together AI, Fireworks AI, xAI (Grok), Alibaba Cloud Model Studio (Qwen DashScope), Cloudflare Workers AI, ArvanCloud AI, MetisAI, Liara AI, HeroAI, TalkBot, CupAI, Hooshang, Hormouz, and Custom OpenAI-Compatible / Self-Hosted Ollama.
 
 = 1.8.2 =
 * Compatibility: Declared WooCommerce tested up to 11.3.0.

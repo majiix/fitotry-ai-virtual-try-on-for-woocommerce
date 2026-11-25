@@ -485,20 +485,79 @@ class Fito_Tryon_Rest {
     }
 
     public function handle_test_connection(WP_REST_Request $request): WP_REST_Response {
-        $api_key = $request->get_param('api_key');
-        $result  = $this->plugin->openrouter->test_connection($api_key);
+        $provider = sanitize_key((string) ($request->get_param('provider') ?: 'openrouter'));
+        $api_key  = $request->get_param('api_key');
+        $extra    = [
+            'base_url'   => sanitize_text_field((string) ($request->get_param('base_url') ?? '')),
+            'account_id' => sanitize_text_field((string) ($request->get_param('account_id') ?? '')),
+        ];
+
+        $allowed = $this->plugin->get_allowed_providers();
+        if (!in_array($provider, $allowed, true)) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => __('Invalid or unsupported AI provider specified.', 'fitotry-ai-virtual-try-on-for-woocommerce'),
+            ], 400);
+        }
+
+        if ($provider === 'openrouter') {
+            $result = $this->plugin->openrouter->test_connection($api_key);
+        } elseif ($provider === 'gemini') {
+            $result = $this->plugin->gemini->test_connection($api_key);
+        } elseif ($provider === 'openai') {
+            $result = $this->plugin->openai->test_connection($api_key);
+        } elseif (Fito_Tryon_Providers::get_provider($provider) !== null) {
+            $result = $this->plugin->openai_compatible->test_connection($provider, $api_key, $extra);
+        } else {
+            $result = apply_filters('fito_tryon_test_connection', [
+                'success' => false,
+                'message' => __('Provider connection testing is not available.', 'fitotry-ai-virtual-try-on-for-woocommerce'),
+            ], $provider, $api_key);
+        }
 
         return new WP_REST_Response($result, !empty($result['success']) ? 200 : 400);
     }
 
     public function handle_get_models(WP_REST_Request $request): WP_REST_Response {
-        $force      = $request->get_param('refresh') === '1' || $request->get_param('force') === '1';
-        $was_cached = !$force && !empty($this->plugin->openrouter->get_cached_models());
-        $models     = $this->plugin->openrouter->fetch_live_models($force);
+        $provider = sanitize_key((string) ($request->get_param('provider') ?: 'openrouter'));
+        $allowed  = $this->plugin->get_allowed_providers();
+        if (!in_array($provider, $allowed, true)) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => __('Invalid or unsupported AI provider specified.', 'fitotry-ai-virtual-try-on-for-woocommerce'),
+            ], 400);
+        }
+
+        $force   = $request->get_param('refresh') === '1' || $request->get_param('force') === '1';
+        $api_key = $request->get_param('api_key');
+        if ($api_key !== null) {
+            $api_key = sanitize_text_field(trim((string) $api_key));
+        }
+        $extra = [
+            'base_url'   => sanitize_text_field((string) ($request->get_param('base_url') ?? '')),
+            'account_id' => sanitize_text_field((string) ($request->get_param('account_id') ?? '')),
+        ];
+
+        if ($provider === 'openrouter') {
+            $was_cached = !$force && !empty($this->plugin->openrouter->get_cached_models());
+            $models     = $this->plugin->openrouter->fetch_live_models($force);
+        } elseif ($provider === 'gemini') {
+            $was_cached = !$force && !empty(get_transient(Fito_Tryon_Gemini::CACHE_KEY_MODELS));
+            $models     = $this->plugin->gemini->fetch_live_models($api_key, $force);
+        } elseif ($provider === 'openai') {
+            $was_cached = !$force && !empty(get_transient(Fito_Tryon_OpenAI::CACHE_KEY_MODELS));
+            $models     = $this->plugin->openai->fetch_live_models($api_key, $force);
+        } elseif (Fito_Tryon_Providers::get_provider($provider) !== null) {
+            $was_cached = !$force && !empty(get_transient('fito_tryon_models_' . sanitize_key($provider)));
+            $models     = $this->plugin->openai_compatible->fetch_live_models($provider, $api_key, $force, $extra);
+        } else {
+            $was_cached = false;
+            $models     = (array) apply_filters('fito_tryon_fetch_models', [], $provider, $api_key, $force);
+        }
 
         return new WP_REST_Response([
             'success'  => true,
-            'provider' => 'openrouter',
+            'provider' => $provider,
             'models'   => $models,
             'count'    => count($models),
             'cached'   => $was_cached,

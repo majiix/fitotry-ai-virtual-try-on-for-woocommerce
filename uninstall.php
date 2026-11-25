@@ -37,8 +37,14 @@ $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}fito_tryon_rate_limits");
 
 // 5. Delete registered options
 $fito_tryon_options = [
+    'fito_tryon_ai_provider',
     'fito_tryon_openrouter_api_key',
     'fito_tryon_primary_model',
+    'fito_tryon_gemini_api_key',
+    'fito_tryon_gemini_primary_model',
+    'fito_tryon_openai_api_key',
+    'fito_tryon_openai_primary_model',
+    'fito_tryon_provider_configs',
     'fito_tryon_timeout_seconds',
     'fito_tryon_button_text',
     'fito_tryon_button_position',

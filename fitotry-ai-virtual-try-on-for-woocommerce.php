@@ -3,7 +3,7 @@
  * Plugin Name:       Fitotry AI Virtual Try-On for WooCommerce
  * Plugin URI:        https://wordpress.org/plugins/fitotry-ai-virtual-try-on-for-woocommerce/
  * Description:       Enable customers to virtually try on clothing, shoes, glasses, jewelry, and accessories directly in WooCommerce using OpenRouter AI.
- * Version:           1.8.2
+ * Version:           1.9.0
  * Author:            micromax
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -20,7 +20,7 @@ defined('ABSPATH') || exit;
 
 // Core plugin constants (guarded against duplicate definition).
 if (!defined('FITO_TRYON_VERSION')) {
-    define('FITO_TRYON_VERSION', '1.8.2');
+    define('FITO_TRYON_VERSION', '1.9.0');
 }
 if (!defined('FITO_TRYON_FILE')) {
     define('FITO_TRYON_FILE', __FILE__);

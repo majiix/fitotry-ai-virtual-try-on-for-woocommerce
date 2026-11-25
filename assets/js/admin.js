@@ -8,6 +8,7 @@
     const FitoAdmin = {
         init: function () {
             this.initChart();
+            this.bindProviderToggle();
             this.bindConnectionTest();
             this.bindAccessControl();
             this.bindLogInspection();
@@ -73,14 +74,59 @@
             });
         },
 
+        getProviderPanel: function (provider) {
+            const meta = (fitoAdminData.providers && fitoAdminData.providers[provider]) ? fitoAdminData.providers[provider] : null;
+            if (meta && meta.client_type === 'openai_compatible') {
+                return $('#fito-panel-compatible');
+            }
+            return $('#fito-panel-' + provider).length ? $('#fito-panel-' + provider) : $('#fito-panel-openrouter');
+        },
+
+        hydrateCompatiblePanel: function (provider) {
+            const meta = (fitoAdminData.providers && fitoAdminData.providers[provider]) ? fitoAdminData.providers[provider] : null;
+            if (!meta || meta.client_type !== 'openai_compatible') {
+                return;
+            }
+            const cfg = (fitoAdminData.providerConfigs && fitoAdminData.providerConfigs[provider]) ? fitoAdminData.providerConfigs[provider] : {};
+            const $panel = $('#fito-panel-compatible');
+            const $table = $('#fito-models-wrapper-compatible');
+
+            $table.data('provider', provider).attr('data-provider', provider);
+            $table.data('saved-primary', cfg.primary_model || meta.default_primary_model || '').attr('data-saved-primary', cfg.primary_model || meta.default_primary_model || '');
+            $('#fito_compat_test_btn').data('provider', provider).attr('data-provider', provider);
+            $('#fito_compat_api_key').val(cfg.api_key || '');
+            $('#fito_compat_api_key_label').text((meta.short_label || 'Provider') + ' API Key');
+            $('#fito_compat_key_hint').text(meta.key_hint || '');
+            $('#fito_compat_account_id').val(cfg.account_id || '');
+            $('#fito_compat_base_url').val(cfg.base_url || '').attr('placeholder', meta.base_url || 'https://');
+
+            $('#fito_compat_account_id_row').toggle(!!meta.requires_account_id);
+            $('#fito_compat_base_url_row').toggle(!!meta.allows_custom_base_url);
+            $panel.find('.fito-connection-test-result').removeClass('is-success is-error').hide();
+        },
+
+        bindProviderToggle: function () {
+            const self = this;
+            $('#fito_ai_provider').on('change', function () {
+                const provider = $(this).val();
+                $('.fito-provider-panel').hide();
+                self.hydrateCompatiblePanel(provider);
+                self.getProviderPanel(provider).fadeIn(150);
+                self.loadModelsWithSkeleton(false, provider);
+            });
+        },
+
         bindConnectionTest: function () {
+            const self = this;
             $(document).on('click', '.fito-btn-test-connection', function () {
                 const $btn = $(this);
-                const provider = 'openrouter';
-                const $panel = $btn.closest('.fito-provider-panel').length ? $btn.closest('.fito-provider-panel') : $('#fito-panel-openrouter');
+                const provider = $btn.data('provider') || $('#fito_ai_provider').val() || 'openrouter';
+                const $panel = self.getProviderPanel(provider);
                 const $result = $panel.find('.fito-connection-test-result');
                 const $input = $panel.find('input[type="password"]');
                 const key = $input.length && $input.val() ? $input.val().trim() : '';
+                const baseUrl = $panel.find('#fito_compat_base_url').length ? ($panel.find('#fito_compat_base_url').val() || '').trim() : '';
+                const accountId = $panel.find('#fito_compat_account_id').length ? ($panel.find('#fito_compat_account_id').val() || '').trim() : '';
 
                 $btn.prop('disabled', true).text((fitoAdminData.i18n && fitoAdminData.i18n.testing) || 'Testing...');
                 $result.removeClass('is-success is-error').hide();
@@ -90,7 +136,9 @@
                     type: 'POST',
                     data: {
                         provider: provider,
-                        api_key: key
+                        api_key: key,
+                        base_url: baseUrl,
+                        account_id: accountId
                     },
                     headers: { 'X-WP-Nonce': fitoAdminData.nonce },
                     success: function (res) {
@@ -314,25 +362,27 @@
 
         bindModelSync: function () {
             const self = this;
+            const activeProvider = $('#fito_ai_provider').val() || 'openrouter';
 
-            // Load models on page load for OpenRouter
+            // Load models on page load for active provider
             if ($('.fito-provider-table').length) {
-                self.loadModelsWithSkeleton(false, 'openrouter');
+                self.loadModelsWithSkeleton(false, activeProvider);
             }
 
             // Manual refresh button
             $('#fito-btn-sync-models').on('click', function () {
-                self.loadModelsWithSkeleton(true, 'openrouter');
+                const currentProvider = $('#fito_ai_provider').val() || 'openrouter';
+                self.loadModelsWithSkeleton(true, currentProvider);
             });
         },
 
         loadModelsWithSkeleton: function (forceRefresh, provider) {
-            const activeProvider = provider || 'openrouter';
+            const activeProvider = provider || $('#fito_ai_provider').val() || 'openrouter';
             const $btn = $('#fito-btn-sync-models');
             const $status = $('#fito-sync-models-status');
             const originalHtml = $btn.length ? $btn.html() : '';
 
-            const $panel = $('#fito-panel-' + activeProvider).length ? $('#fito-panel-' + activeProvider) : $('.fito-provider-panel');
+            const $panel = this.getProviderPanel(activeProvider);
             const $wrapper = $panel.find('.fito-provider-table');
             const $primarySelect = $panel.find('select[id$="_primary_model"]');
             const $skeletons = $panel.find('.fito-primary-skeleton');
@@ -352,10 +402,18 @@
 
             const $keyInput = $panel.find('input[type="password"]');
             const currentKey = $keyInput.length && $keyInput.val() ? $keyInput.val().trim() : '';
+            const baseUrl = $panel.find('#fito_compat_base_url').length ? ($panel.find('#fito_compat_base_url').val() || '').trim() : '';
+            const accountId = $panel.find('#fito_compat_account_id').length ? ($panel.find('#fito_compat_account_id').val() || '').trim() : '';
 
             let requestUrl = fitoAdminData.restUrl + 'models?provider=' + encodeURIComponent(activeProvider) + '&refresh=' + (forceRefresh ? '1' : '0');
             if (currentKey) {
                 requestUrl += '&api_key=' + encodeURIComponent(currentKey);
+            }
+            if (baseUrl) {
+                requestUrl += '&base_url=' + encodeURIComponent(baseUrl);
+            }
+            if (accountId) {
+                requestUrl += '&account_id=' + encodeURIComponent(accountId);
             }
 
             $.ajax({

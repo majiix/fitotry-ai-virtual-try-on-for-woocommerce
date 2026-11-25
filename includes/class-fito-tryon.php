@@ -14,6 +14,9 @@ class Fito_Tryon {
     public Fito_Tryon_Rate_Limiter $rate_limiter;
     public Fito_Tryon_Privacy $privacy;
     public Fito_Tryon_OpenRouter $openrouter;
+    public Fito_Tryon_Gemini $gemini;
+    public Fito_Tryon_OpenAI $openai;
+    public Fito_Tryon_OpenAI_Compatible $openai_compatible;
     public Fito_Tryon_Rest $rest;
     public Fito_Tryon_Public $public;
     public ?Fito_Tryon_Admin $admin = null;
@@ -40,6 +43,9 @@ class Fito_Tryon {
         $this->rate_limiter = new Fito_Tryon_Rate_Limiter();
         $this->privacy = new Fito_Tryon_Privacy();
         $this->openrouter = new Fito_Tryon_OpenRouter();
+        $this->gemini = new Fito_Tryon_Gemini();
+        $this->openai = new Fito_Tryon_OpenAI();
+        $this->openai_compatible = new Fito_Tryon_OpenAI_Compatible();
         $this->rest = new Fito_Tryon_Rest($this);
         $this->public = new Fito_Tryon_Public($this);
 
@@ -57,7 +63,11 @@ class Fito_Tryon {
         require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-storage.php';
         require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-rate-limiter.php';
         require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-privacy.php';
+        require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-providers.php';
         require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-openrouter.php';
+        require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-gemini.php';
+        require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-openai.php';
+        require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-openai-compatible.php';
         require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-rest.php';
         require_once FITO_TRYON_PATH . 'includes/class-fito-tryon-public.php';
 
@@ -95,11 +105,67 @@ class Fito_Tryon {
     }
 
     /**
+     * Retrieve all permitted AI image generation providers.
+     *
+     * @return array<int, string>
+     */
+    public function get_allowed_providers(): array {
+        return (array) apply_filters('fito_tryon_allowed_providers', Fito_Tryon_Providers::get_slugs());
+    }
+
+    /**
+     * Get active AI provider slug.
+     *
+     * @return string
+     */
+    public function get_active_provider(): string {
+        $provider = (string) get_option('fito_tryon_ai_provider', 'openrouter');
+        $allowed  = $this->get_allowed_providers();
+        if (!in_array($provider, $allowed, true)) {
+            return 'openrouter';
+        }
+        return $provider;
+    }
+
+    /**
+     * Resolve provider client object.
+     *
+     * @param string $provider
+     * @return object|null
+     */
+    public function get_provider_client(string $provider = ''): ?object {
+        if (empty($provider)) {
+            $provider = $this->get_active_provider();
+        }
+        if ($provider === 'openrouter') {
+            return $this->openrouter;
+        }
+        if ($provider === 'gemini') {
+            return $this->gemini;
+        }
+        if ($provider === 'openai') {
+            return $this->openai;
+        }
+        if (Fito_Tryon_Providers::get_provider($provider) !== null) {
+            return $this->openai_compatible;
+        }
+        return apply_filters('fito_tryon_resolve_provider_client', null, $provider);
+    }
+
+    /**
      * Retrieve active primary model for current provider.
      *
      * @return string
      */
     public function get_active_primary_model(): string {
+        $provider = $this->get_active_provider();
+        $client   = $this->get_provider_client($provider);
+        if ($client instanceof Fito_Tryon_OpenAI_Compatible) {
+            return $client->get_primary_model($provider);
+        }
+        if ($client && method_exists($client, 'get_primary_model')) {
+            return $client->get_primary_model();
+        }
         return $this->openrouter->get_primary_model();
     }
 
@@ -110,6 +176,14 @@ class Fito_Tryon {
      * @return array<string, mixed>
      */
     public function generate_tryon(array $params): array {
+        $provider = $this->get_active_provider();
+        $client   = $this->get_provider_client($provider);
+        if ($client instanceof Fito_Tryon_OpenAI_Compatible) {
+            return $client->generate_tryon($provider, $params);
+        }
+        if ($client && method_exists($client, 'generate_tryon')) {
+            return $client->generate_tryon($params);
+        }
         return $this->openrouter->generate_tryon($params);
     }
 }

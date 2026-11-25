@@ -24,7 +24,11 @@ fitotry-ai-virtual-try-on-for-woocommerce/
 │   ├── class-fito-tryon.php                       # Master orchestrator & provider registration
 │   ├── class-fito-tryon-database.php              # dbDelta schema and database queries
 │   ├── class-fito-tryon-storage.php               # Upload management & directories
+│   ├── class-fito-tryon-providers.php             # Registry of 21 image-capable AI providers & URL validation
 │   ├── class-fito-tryon-openrouter.php            # OpenRouter API client & prompt synthesis
+│   ├── class-fito-tryon-gemini.php                # Google Gemini direct API client
+│   ├── class-fito-tryon-openai.php                # OpenAI direct API client
+│   ├── class-fito-tryon-openai-compatible.php     # Unified OpenAI-compatible & Ollama client
 │   ├── class-fito-tryon-rate-limiter.php          # Per-IP and per-user sliding window throttling
 │   ├── class-fito-tryon-privacy.php               # WP-Cron 24h auto-retention and photo purges
 │   ├── class-fito-tryon-rest.php                  # Nonce-secured REST endpoints & route handlers

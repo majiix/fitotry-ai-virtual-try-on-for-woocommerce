@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
     define('ABSPATH', 'e:/wps/dorsanet/app/public/');
 }
 if (!defined('FITO_TRYON_VERSION')) {
-    define('FITO_TRYON_VERSION', '1.8.2');
+    define('FITO_TRYON_VERSION', '1.9.0');
 }
 if (!defined('FITO_TRYON_PATH')) {
     define('FITO_TRYON_PATH', dirname(__DIR__) . '/');
@@ -407,8 +407,21 @@ $rest_file_content = file_get_contents(FITO_TRYON_PATH . 'includes/class-fito-tr
 assert_test(!str_contains($rest_file_content, 'set_transient('), "REST API class does not use non-atomic set_transient for counters");
 
 $main_file_content = file_get_contents(FITO_TRYON_PATH . 'fitotry-ai-virtual-try-on-for-woocommerce.php');
-assert_test(str_contains($main_file_content, "Version:           1.8.2"), "Main plugin file header declares version 1.8.2");
-assert_test(FITO_TRYON_VERSION === '1.8.2', "FITO_TRYON_VERSION constant is 1.8.2");
+assert_test(str_contains($main_file_content, "Version:           1.9.0"), "Main plugin file header declares version 1.9.0");
+assert_test(FITO_TRYON_VERSION === '1.9.0', "FITO_TRYON_VERSION constant is 1.9.0");
+
+// 13. Multi-Provider Registry & OpenAI-Compatible Client
+$slugs = Fito_Tryon_Providers::get_slugs();
+assert_test(count($slugs) === 21, "Provider registry contains 21 image-capable providers");
+assert_test(in_array('openrouter', $slugs, true) && in_array('openai', $slugs, true) && in_array('gemini', $slugs, true) && in_array('custom', $slugs, true), "Core and custom providers are registered");
+assert_test(!in_array('jina', $slugs, true) && !in_array('voyage', $slugs, true) && !in_array('cohere', $slugs, true) && !in_array('groq', $slugs, true) && !in_array('twelvelabs', $slugs, true), "Non-image-generation providers are excluded");
+assert_test(Fito_Tryon_Providers::validate_base_url('https://api.example.com/v1') === 'https://api.example.com/v1', "Valid HTTPS base URL passes validation");
+assert_test(Fito_Tryon_Providers::validate_base_url('http://localhost:11434/v1') === 'http://localhost:11434/v1', "Localhost Ollama HTTP URL passes validation");
+assert_test(is_wp_error(Fito_Tryon_Providers::validate_base_url('http://remote.example.com/v1')), "Remote HTTP base URL is rejected");
+assert_test(is_wp_error(Fito_Tryon_Providers::validate_base_url('http://169.254.169.254/latest/meta-data')), "Cloud metadata IP is rejected");
+assert_test($plugin->get_provider_client('gemini') instanceof Fito_Tryon_Gemini, "get_provider_client resolves Gemini client");
+assert_test($plugin->get_provider_client('openai') instanceof Fito_Tryon_OpenAI, "get_provider_client resolves OpenAI client");
+assert_test($plugin->get_provider_client('avalai') instanceof Fito_Tryon_OpenAI_Compatible, "get_provider_client resolves OpenAI-Compatible client");
 
 echo "\n=======================================================\n";
 echo "Test Results: {$tests_passed} / {$tests_total} tests passed.\n";

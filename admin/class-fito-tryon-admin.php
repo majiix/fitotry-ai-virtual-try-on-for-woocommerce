@@ -114,10 +114,12 @@ class Fito_Tryon_Admin {
         );
 
         wp_localize_script('fito-tryon-admin', 'fitoAdminData', [
-            'restUrl'   => esc_url_raw(rest_url('fito-tryon/v1/')),
-            'nonce'     => wp_create_nonce('wp_rest'),
-            'chartData' => $chart_data,
-            'i18n'      => [
+            'restUrl'         => esc_url_raw(rest_url('fito-tryon/v1/')),
+            'nonce'           => wp_create_nonce('wp_rest'),
+            'chartData'       => $chart_data,
+            'providers'       => Fito_Tryon_Providers::get_registry(),
+            'providerConfigs' => (array) get_option(Fito_Tryon_OpenAI_Compatible::OPTION_KEY, []),
+            'i18n'            => [
                 'testing'        => __('Testing connection...', 'fitotry-ai-virtual-try-on-for-woocommerce'),
                 'testSuccess'    => __('Connection verified successfully!', 'fitotry-ai-virtual-try-on-for-woocommerce'),
                 'fetchingModels' => __('Fetching live models...', 'fitotry-ai-virtual-try-on-for-woocommerce'),
@@ -151,7 +153,7 @@ class Fito_Tryon_Admin {
                 </p>
 
                 <div class="fito-pro-features">
-                    <!-- Feature 1: Direct OpenAI & Gemini -->
+                    <!-- Feature 1: Priority Updates & Pro Support -->
                     <div class="fito-pro-feature-item">
                         <div class="fito-pro-feature-icon">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -159,8 +161,8 @@ class Fito_Tryon_Admin {
                             </svg>
                         </div>
                         <div class="fito-pro-feature-text">
-                            <strong><?php esc_html_e('Direct OpenAI & Gemini:', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></strong>
-                            <?php esc_html_e('Connect directly to Google AI Studio and OpenAI with zero middleware fees.', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?>
+                            <strong><?php esc_html_e('Enterprise Add-Ons:', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></strong>
+                            <?php esc_html_e('Unlock fallback auto-retry, watermarking, smart caching, and archive placements.', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?>
                         </div>
                     </div>
 
@@ -639,8 +641,18 @@ class Fito_Tryon_Admin {
     }
 
     public function render_settings_page(): void {
+        $allowed_providers    = $this->plugin->get_allowed_providers();
+        $ai_provider          = $this->plugin->get_active_provider();
         $api_key              = get_option('fito_tryon_openrouter_api_key', '');
         $primary_model        = get_option('fito_tryon_primary_model', 'google/gemini-2.5-flash-image');
+        $gemini_key           = get_option('fito_tryon_gemini_api_key', '');
+        $gemini_primary       = get_option('fito_tryon_gemini_primary_model', 'gemini-2.5-flash-image');
+        $openai_key           = get_option('fito_tryon_openai_api_key', '');
+        $openai_primary       = get_option('fito_tryon_openai_primary_model', 'gpt-image-2.5-flare');
+        $provider_configs     = (array) get_option(Fito_Tryon_OpenAI_Compatible::OPTION_KEY, []);
+        $active_meta          = Fito_Tryon_Providers::get_provider($ai_provider) ?? [];
+        $is_compat_active     = ($active_meta['client_type'] ?? '') === 'openai_compatible';
+        $compat_cfg           = $is_compat_active ? $this->plugin->openai_compatible->get_config($ai_provider) : ['api_key' => '', 'primary_model' => '', 'base_url' => '', 'account_id' => ''];
         $timeout              = get_option('fito_tryon_timeout_seconds', 60);
 
         $button_text   = get_option('fito_tryon_button_text', __('Try It On with AI', 'fitotry-ai-virtual-try-on-for-woocommerce'));
@@ -727,20 +739,24 @@ class Fito_Tryon_Admin {
                     <div class="fito-card-body">
                         <table class="form-table">
                             <tr>
-                                <th scope="row"><label><?php esc_html_e('AI Engine', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                <th scope="row"><label for="fito_ai_provider"><?php esc_html_e('AI Provider', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
                                 <td>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <span class="fito-provider-badge" style="display: inline-flex; align-items: center; padding: 4px 10px; background: #e0f2fe; color: #0369a1; font-weight: 600; border-radius: 4px; font-size: 13px;">
-                                            <?php esc_html_e('OpenRouter (Multi-Model Aggregator)', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?>
-                                        </span>
-                                    </div>
-                                    <p class="description"><?php esc_html_e('OpenRouter powers AI virtual try-on image generation with access to top vision models.', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
+                                    <select id="fito_ai_provider" name="fito_tryon_ai_provider" class="regular-text" style="max-width: 420px;">
+                                        <?php
+                                        $provider_labels = (array) apply_filters('fito_tryon_provider_labels', Fito_Tryon_Providers::get_labels());
+                                        foreach ($allowed_providers as $p_slug) :
+                                            $p_label = $provider_labels[$p_slug] ?? ucfirst($p_slug);
+                                        ?>
+                                            <option value="<?php echo esc_attr($p_slug); ?>" <?php selected($ai_provider, $p_slug); ?>><?php echo esc_html($p_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="description"><?php esc_html_e('Select which Bring-Your-Own-Key (BYOK) AI service powers virtual try-on image generation.', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
                                 </td>
                             </tr>
                         </table>
 
                         <!-- Provider Panel: OpenRouter -->
-                        <div class="fito-provider-panel" id="fito-panel-openrouter">
+                        <div class="fito-provider-panel" id="fito-panel-openrouter" style="<?php echo $ai_provider === 'openrouter' ? '' : 'display: none;'; ?>">
                             <table class="form-table fito-provider-table" id="fito-models-wrapper-openrouter" data-provider="openrouter" data-saved-primary="<?php echo esc_attr($primary_model); ?>">
                                 <tr>
                                     <th scope="row"><label for="fito_openrouter_api_key"><?php esc_html_e('OpenRouter API Key', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
@@ -764,6 +780,115 @@ class Fito_Tryon_Admin {
                                                 <option value="<?php echo esc_attr($primary_model); ?>"><?php echo esc_html($primary_model); ?></option>
                                             </select>
                                             <p class="description"><?php esc_html_e('Only image generation models suitable for virtual try-on are displayed (cached for 24 hours).', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Provider Panel: Google Gemini -->
+                        <div class="fito-provider-panel" id="fito-panel-gemini" style="<?php echo $ai_provider === 'gemini' ? '' : 'display: none;'; ?>">
+                            <table class="form-table fito-provider-table" id="fito-models-wrapper-gemini" data-provider="gemini" data-saved-primary="<?php echo esc_attr($gemini_primary); ?>">
+                                <tr>
+                                    <th scope="row"><label for="fito_gemini_api_key"><?php esc_html_e('Google Gemini API Key', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                    <td>
+                                        <div class="fito-key-input-row">
+                                            <input type="password" id="fito_gemini_api_key" name="fito_tryon_gemini_api_key" value="<?php echo esc_attr($gemini_key); ?>" class="regular-text" autocomplete="off">
+                                            <button type="button" class="button fito-btn-test-connection" data-provider="gemini"><?php esc_html_e('Test Connection', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></button>
+                                        </div>
+                                        <p class="description"><?php esc_html_e('Get your API key at aistudio.google.com/app/apikey.', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
+                                        <div class="fito-connection-test-result fito-test-result" style="display: none;"></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label for="fito_gemini_primary_model"><?php esc_html_e('Primary Model', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                    <td>
+                                        <div class="fito-skeleton-box fito-primary-skeleton">
+                                            <div class="fito-skeleton-bar fito-skeleton-select"></div>
+                                        </div>
+                                        <div class="fito-primary-select-wrap" style="display: none;">
+                                            <select id="fito_gemini_primary_model" name="fito_tryon_gemini_primary_model" class="regular-text" style="max-width: 520px;">
+                                                <option value="<?php echo esc_attr($gemini_primary); ?>"><?php echo esc_html($gemini_primary); ?></option>
+                                            </select>
+                                            <p class="description"><?php esc_html_e('Gemini models supporting vision and image generation (cached for 24 hours).', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Provider Panel: OpenAI -->
+                        <div class="fito-provider-panel" id="fito-panel-openai" style="<?php echo $ai_provider === 'openai' ? '' : 'display: none;'; ?>">
+                            <table class="form-table fito-provider-table" id="fito-models-wrapper-openai" data-provider="openai" data-saved-primary="<?php echo esc_attr($openai_primary); ?>">
+                                <tr>
+                                    <th scope="row"><label for="fito_openai_api_key"><?php esc_html_e('OpenAI API Key', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                    <td>
+                                        <div class="fito-key-input-row">
+                                            <input type="password" id="fito_openai_api_key" name="fito_tryon_openai_api_key" value="<?php echo esc_attr($openai_key); ?>" class="regular-text" autocomplete="off">
+                                            <button type="button" class="button fito-btn-test-connection" data-provider="openai"><?php esc_html_e('Test Connection', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></button>
+                                        </div>
+                                        <p class="description"><?php esc_html_e('Get your API key at platform.openai.com/api-keys.', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
+                                        <div class="fito-connection-test-result fito-test-result" style="display: none;"></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label for="fito_openai_primary_model"><?php esc_html_e('Primary Model', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                    <td>
+                                        <div class="fito-skeleton-box fito-primary-skeleton">
+                                            <div class="fito-skeleton-bar fito-skeleton-select"></div>
+                                        </div>
+                                        <div class="fito-primary-select-wrap" style="display: none;">
+                                            <select id="fito_openai_primary_model" name="fito_tryon_openai_primary_model" class="regular-text" style="max-width: 520px;">
+                                                <option value="<?php echo esc_attr($openai_primary); ?>"><?php echo esc_html($openai_primary); ?></option>
+                                            </select>
+                                            <p class="description"><?php esc_html_e('OpenAI image generation models (cached for 24 hours).', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Shared Dynamic Panel: OpenAI-Compatible Providers & Self-Hosted Ollama -->
+                        <div class="fito-provider-panel" id="fito-panel-compatible" style="<?php echo $is_compat_active ? '' : 'display: none;'; ?>">
+                            <table class="form-table fito-provider-table" id="fito-models-wrapper-compatible" data-provider="<?php echo esc_attr($is_compat_active ? $ai_provider : ''); ?>" data-saved-primary="<?php echo esc_attr($compat_cfg['primary_model']); ?>">
+                                <tr id="fito_compat_account_id_row" style="<?php echo !empty($active_meta['requires_account_id']) ? '' : 'display: none;'; ?>">
+                                    <th scope="row"><label for="fito_compat_account_id"><?php esc_html_e('Account ID', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                    <td>
+                                        <input type="text" id="fito_compat_account_id" name="fito_tryon_compat_account_id" value="<?php echo esc_attr($compat_cfg['account_id']); ?>" class="regular-text" autocomplete="off">
+                                        <p class="description"><?php esc_html_e('Required for Cloudflare Workers AI endpoints.', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr id="fito_compat_base_url_row" style="<?php echo !empty($active_meta['allows_custom_base_url']) ? '' : 'display: none;'; ?>">
+                                    <th scope="row"><label for="fito_compat_base_url"><?php esc_html_e('API Base URL', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                    <td>
+                                        <input type="url" id="fito_compat_base_url" name="fito_tryon_compat_base_url" value="<?php echo esc_attr($compat_cfg['base_url']); ?>" placeholder="<?php echo esc_attr((string) ($active_meta['base_url'] ?? 'https://')); ?>" class="regular-text" autocomplete="off">
+                                        <p class="description" id="fito_compat_base_url_desc"><?php esc_html_e('Leave blank to use the default provider endpoint, or enter an HTTPS Base URL (http://localhost:11434/v1 for Ollama).', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label for="fito_compat_api_key" id="fito_compat_api_key_label"><?php esc_html_e('API Key', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                    <td>
+                                        <div class="fito-key-input-row">
+                                            <input type="password" id="fito_compat_api_key" name="fito_tryon_compat_api_key" value="<?php echo esc_attr($compat_cfg['api_key']); ?>" class="regular-text" autocomplete="off">
+                                            <button type="button" class="button fito-btn-test-connection" id="fito_compat_test_btn" data-provider="<?php echo esc_attr($is_compat_active ? $ai_provider : ''); ?>"><?php esc_html_e('Test Connection', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></button>
+                                        </div>
+                                        <p class="description" id="fito_compat_key_hint"><?php echo esc_html((string) ($active_meta['key_hint'] ?? '')); ?></p>
+                                        <div class="fito-connection-test-result fito-test-result" style="display: none;"></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label for="fito_compat_primary_model"><?php esc_html_e('Primary Model', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></label></th>
+                                    <td>
+                                        <div class="fito-skeleton-box fito-primary-skeleton">
+                                            <div class="fito-skeleton-bar fito-skeleton-select"></div>
+                                        </div>
+                                        <div class="fito-primary-select-wrap" style="display: none;">
+                                            <select id="fito_compat_primary_model" name="fito_tryon_compat_primary_model" class="regular-text" style="max-width: 520px;">
+                                                <?php if (!empty($compat_cfg['primary_model'])) : ?>
+                                                    <option value="<?php echo esc_attr($compat_cfg['primary_model']); ?>"><?php echo esc_html($compat_cfg['primary_model']); ?></option>
+                                                <?php endif; ?>
+                                            </select>
+                                            <p class="description"><?php esc_html_e('Select an image-capable model from this provider (cached for 24 hours).', 'fitotry-ai-virtual-try-on-for-woocommerce'); ?></p>
                                         </div>
                                     </td>
                                 </tr>
@@ -984,11 +1109,59 @@ class Fito_Tryon_Admin {
 
         check_admin_referer('fito_tryon_save_settings_nonce');
 
+        $allowed_providers = $this->plugin->get_allowed_providers();
+        $ai_provider       = $this->plugin->get_active_provider();
+        if (isset($_POST['fito_tryon_ai_provider'])) {
+            $provider    = sanitize_key(wp_unslash($_POST['fito_tryon_ai_provider']));
+            $ai_provider = in_array($provider, $allowed_providers, true) ? $provider : 'openrouter';
+            update_option('fito_tryon_ai_provider', $ai_provider, false);
+        }
+
         if (isset($_POST['fito_tryon_openrouter_api_key'])) {
             update_option('fito_tryon_openrouter_api_key', sanitize_text_field(wp_unslash($_POST['fito_tryon_openrouter_api_key'])), false);
         }
         if (isset($_POST['fito_tryon_primary_model'])) {
             update_option('fito_tryon_primary_model', sanitize_text_field(wp_unslash($_POST['fito_tryon_primary_model'])), false);
+        }
+        if (isset($_POST['fito_tryon_gemini_api_key'])) {
+            update_option('fito_tryon_gemini_api_key', sanitize_text_field(wp_unslash($_POST['fito_tryon_gemini_api_key'])), false);
+        }
+        if (isset($_POST['fito_tryon_gemini_primary_model'])) {
+            update_option('fito_tryon_gemini_primary_model', sanitize_text_field(wp_unslash($_POST['fito_tryon_gemini_primary_model'])), false);
+        }
+        if (isset($_POST['fito_tryon_openai_api_key'])) {
+            update_option('fito_tryon_openai_api_key', sanitize_text_field(wp_unslash($_POST['fito_tryon_openai_api_key'])), false);
+        }
+        if (isset($_POST['fito_tryon_openai_primary_model'])) {
+            update_option('fito_tryon_openai_primary_model', sanitize_text_field(wp_unslash($_POST['fito_tryon_openai_primary_model'])), false);
+        }
+
+        $active_meta = Fito_Tryon_Providers::get_provider($ai_provider);
+        if ($active_meta && ($active_meta['client_type'] ?? '') === 'openai_compatible') {
+            $all_configs = (array) get_option(Fito_Tryon_OpenAI_Compatible::OPTION_KEY, []);
+            $existing    = isset($all_configs[$ai_provider]) && is_array($all_configs[$ai_provider]) ? $all_configs[$ai_provider] : [];
+            if (isset($_POST['fito_tryon_compat_api_key'])) {
+                $existing['api_key'] = sanitize_text_field(wp_unslash($_POST['fito_tryon_compat_api_key']));
+            }
+            if (isset($_POST['fito_tryon_compat_primary_model'])) {
+                $existing['primary_model'] = sanitize_text_field(wp_unslash($_POST['fito_tryon_compat_primary_model']));
+            }
+            if (isset($_POST['fito_tryon_compat_account_id'])) {
+                $existing['account_id'] = sanitize_text_field(wp_unslash($_POST['fito_tryon_compat_account_id']));
+            }
+            if (isset($_POST['fito_tryon_compat_base_url'])) {
+                $raw_url = trim(sanitize_text_field(wp_unslash($_POST['fito_tryon_compat_base_url'])));
+                if ($raw_url === '') {
+                    $existing['base_url'] = '';
+                } else {
+                    $validated = Fito_Tryon_Providers::validate_base_url($raw_url);
+                    if (!is_wp_error($validated)) {
+                        $existing['base_url'] = $validated;
+                    }
+                }
+            }
+            $all_configs[$ai_provider] = $existing;
+            update_option(Fito_Tryon_OpenAI_Compatible::OPTION_KEY, $all_configs, false);
         }
 
         if (isset($_POST['fito_tryon_timeout_seconds'])) {
